@@ -1,0 +1,11 @@
+
+{
+  "schema_version": 1,
+  "channel": "stable",
+  "os": "AOS",
+  "version": "1.0.0",
+  "minimum_version": "1.0.0",
+  "firmware_url": "",
+  "sha256": "",
+  "release_notes": "AOS initial release"
+}
