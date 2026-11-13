@@ -1,0 +1,3 @@
+AOSCATALOG 1
+# id|name|version|size_bytes|description|download_url   (lines starting with # are ignored)
+hello|Hello|1.0.0|3896|Sample page app|https://raw.githubusercontent.com/muhammadanas2568-dotcom/AOS-Cloud/main/apps/hello.aos
