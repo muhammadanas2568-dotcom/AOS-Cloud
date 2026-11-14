@@ -1,0 +1,190 @@
+AOSPKG 1
+id=block blast
+name=Block Blast!
+version=1.0.0
+description= play for fun!
+author=
+min_aos=3.0.2
+board=ES3C28P
+type=page
+---PAGE---
+<h1>Hello AOS</h1>
+<p>This page is shown by the AOS page viewer.</p>
+<ul><li>Item one</li><li>Item two</li></ul>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AOS Block Puzzle</title>
+<style>
+:root{--bg:#101827;--panel:#1b2940;--cell:#293952;--line:#3d5270;--text:#f3f7ff;--muted:#9eb0ca;--accent:#63d7c5}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(circle at 50% 0,#263b5d 0,#101827 55%);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;justify-content:center;touch-action:pan-y}
+.app{width:min(100%,520px);padding:18px 14px 24px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;justify-content:space-between;align-items:center}
+h1{font-size:clamp(23px,6vw,30px);margin:0;letter-spacing:.3px}
+.sub{font-size:12px;color:var(--muted);margin-top:2px}
+.scorebox{background:var(--panel);border:1px solid #344965;border-radius:14px;padding:8px 14px;text-align:center;min-width:92px}
+.scorebox small{display:block;color:var(--muted);font-size:11px}
+#score{font-size:23px;font-weight:800;font-variant-numeric:tabular-nums}
+.board-wrap{background:linear-gradient(145deg,#1b2a42,#172338);border:1px solid #354b68;border-radius:19px;padding:10px;box-shadow:0 14px 35px #0005}
+#board{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;aspect-ratio:1;width:100%;touch-action:none}
+.cell{background:var(--cell);border:1px solid #354963;border-radius:6px;min-width:0;aspect-ratio:1;transition:background .08s}
+.cell.filled{background:var(--c);border-color:#ffffff38;box-shadow:inset 0 2px 0 #ffffff30,inset 0 -3px 0 #0002}
+.cell.preview{outline:2px solid #fff;filter:brightness(1.35)}
+.cell.invalid{background:#a84b5b!important}
+.info{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:13px;padding:0 3px}
+.pieces{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.piece-slot{height:112px;border:1px solid #344965;background:#1b2940;border-radius:15px;display:flex;align-items:center;justify-content:center;position:relative;touch-action:none;user-select:none;-webkit-user-select:none}
+.piece-slot.selected{border:2px solid var(--accent);background:#20374b}
+.piece{display:grid;gap:4px;pointer-events:none}
+.mini{width:clamp(14px,4.1vw,20px);height:clamp(14px,4.1vw,20px);border-radius:4px;background:var(--c);box-shadow:inset 0 2px 0 #ffffff35,inset 0 -2px 0 #0002}
+.empty{background:transparent!important;box-shadow:none!important}
+.controls{display:flex;gap:9px}
+button{border:0;border-radius:12px;padding:12px 14px;background:#2b405d;color:var(--text);font-weight:700;font-size:14px}
+button.primary{background:var(--accent);color:#10242b;flex:1}
+button:active{transform:scale(.98)}
+.hint{text-align:center;color:var(--muted);font-size:12px;line-height:1.5}
+.drag-ghost{position:fixed;left:0;top:0;z-index:20;display:none;pointer-events:none;transform:translate(-50%,-55%);filter:drop-shadow(0 8px 12px #0008);opacity:.96}.drag-ghost .piece{gap:4px}.drag-ghost .mini{width:clamp(19px,5.2vw,25px);height:clamp(19px,5.2vw,25px);border-radius:5px}.overlay{position:fixed;inset:0;background:#07101dcc;display:none;align-items:center;justify-content:center;padding:22px;z-index:5}
+.overlay.show{display:flex}
+.modal{width:min(100%,340px);background:#1b2940;border:1px solid #49617f;border-radius:20px;padding:24px;text-align:center;box-shadow:0 20px 60px #0008}
+.modal h2{margin:0 0 8px;font-size:26px}.modal p{color:var(--muted);margin:0 0 18px}
+@media(min-width:480px){.app{padding-top:24px} .piece-slot{height:126px}}
+</style>
+</head>
+<body>
+<main class="app">
+<header><div><h1>BLOCK PUZZLE</h1><div class="sub">AOS mini game · Fill complete rows or columns with blocks</div></div><div class="scorebox"><small>Score</small><span id="score">0</span></div></header>
+<div class="info"><span>8 × 8 BOARD</span><span id="best">Best: 0</span></div>
+<section class="board-wrap"><div id="board" aria-label="Game board"></div></section>
+<div class="info"><span>Drag blocks onto the board</span><span id="status">Ready to play!</span></div>
+<section class="pieces" id="pieces"></section>
+<div class="controls"><button id="restart">Restart</button><button id="sound">Sound: OFF</button><button class="primary" id="how">How to Play</button></div>
+<div class="hint">Place pieces on the board. Complete a row or column to clear blocks.<br>No timer. Take your time!</div>
+</main>
+<div id="dragGhost" class="drag-ghost" aria-hidden="true"></div>
+<div class="overlay" id="overlay"><div class="modal"><h2 id="modalTitle">Game Over!</h2><p id="modalText">Your score</p><button class="primary" id="again">Play Again</button></div></div>
+<script>
+(()=>{
+const N=8, colors=['#55c7f2','#ffbd59','#a98bff','#ff718d','#63d7a6','#f17bc7','#8da9ff'];
+const shapes=[
+[[0,0]],[[0,0],[0,1]],[[0,0],[0,1],[0,2]],[[0,0],[1,0],[2,0]],
+[[0,0],[0,1],[1,0],[1,1]],
+[[0,0],[1,0],[1,1]],[[0,1],[1,0],[1,1]],
+[[0,0],[0,1],[0,2],[1,1]],[[0,1],[1,0],[1,1],[1,2]],
+[[0,0],[1,0],[2,0],[2,1]],[[0,1],[1,1],[2,0],[2,1]],
+[[0,0],[0,1],[0,2],[0,3]],[[0,0],[1,0],[2,0],[3,0]],
+[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]],
+[[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]]
+];
+let grid=Array.from({length:N},()=>Array(N).fill(null)), score=0,best=0, slots=[], selected=-1,sound=false,audio,dragging=false,dragIndex=-1;
+const board=document.getElementById('board'), pieces=document.getElementById('pieces');
+const $=id=>document.getElementById(id);
+function tone(freq=520,dur=.08,when=0,type='sine',volume=.045){
+ if(!sound)return;
+ try{
+  audio=audio||new(window.AudioContext||window.webkitAudioContext)();
+  if(audio.state==='suspended')audio.resume();
+  const t=audio.currentTime+when,o=audio.createOscillator(),g=audio.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,t);
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(volume,t+.012);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g);g.connect(audio.destination);o.start(t);o.stop(t+dur+.02);
+ }catch(e){}
+}
+function beep(freq=520,dur=.07){tone(freq,dur)}
+function sfxPick(){tone(430,.045,0,'triangle',.025);tone(650,.055,.035,'triangle',.025)}
+function sfxPlace(){tone(520,.055,0,'sine',.035);tone(760,.075,.045,'sine',.03)}
+function sfxInvalid(){tone(190,.12,0,'square',.025);tone(145,.14,.09,'square',.02)}
+function sfxClear(count=1){
+ const notes=count>=3?[660,830,1040,1320]:count===2?[620,780,980]:[660,880];
+ notes.forEach((n,i)=>tone(n,.16,i*.065,'sine',.04));
+}
+function sfxGameOver(){[440,370,294,220].forEach((n,i)=>tone(n,.22,i*.16,'triangle',.035))}
+function sfxButton(){tone(700,.045,0,'triangle',.025)}
+function renderBoard(){
+ board.innerHTML='';
+ for(let r=0;r<N;r++)for(let c=0;c<N;c++){let d=document.createElement('div');d.className='cell'+(grid[r][c]?' filled':'');if(grid[r][c])d.style.setProperty('--c',grid[r][c]);d.dataset.r=r;d.dataset.c=c;board.appendChild(d)}
+}
+function newPiece(){let s=shapes[Math.floor(Math.random()*shapes.length)];return {shape:s.map(p=>p.slice()),color:colors[Math.floor(Math.random()*colors.length)]}}
+function showDragGhost(piece,x,y){
+ const ghost=$('dragGhost');ghost.innerHTML='';
+ const maxR=Math.max(...piece.shape.map(p=>p[0]))+1,maxC=Math.max(...piece.shape.map(p=>p[1]))+1;
+ const el=document.createElement('div');el.className='piece';el.style.gridTemplateColumns=`repeat(${maxC},auto)`;
+ for(let r=0;r<maxR;r++)for(let c=0;c<maxC;c++){
+   const m=document.createElement('div');m.className='mini'+(piece.shape.some(p=>p[0]===r&&p[1]===c)?'':' empty');
+   if(!m.classList.contains('empty'))m.style.setProperty('--c',piece.color);
+   el.appendChild(m);
+ }
+ ghost.appendChild(el);ghost.style.left=x+'px';ghost.style.top=y+'px';ghost.style.display='block';
+}
+function moveDragGhost(x,y){
+ const ghost=$('dragGhost');ghost.style.left=x+'px';ghost.style.top=y+'px';
+}
+function hideDragGhost(){$('dragGhost').style.display='none';$('dragGhost').innerHTML='';}
+function renderPieces(){
+ pieces.innerHTML='';
+ slots.forEach((p,i)=>{let slot=document.createElement('div');slot.className='piece-slot'+(selected===i?' selected':'');slot.dataset.i=i;
+ if(p){let maxR=Math.max(...p.shape.map(x=>x[0]))+1,maxC=Math.max(...p.shape.map(x=>x[1]))+1;let el=document.createElement('div');el.className='piece';el.style.gridTemplateColumns=`repeat(${maxC},auto)`;for(let r=0;r<maxR;r++)for(let c=0;c<maxC;c++){let m=document.createElement('div');m.className='mini'+(p.shape.some(x=>x[0]===r&&x[1]===c)?'':' empty');if(!m.classList.contains('empty'))m.style.setProperty('--c',p.color);el.appendChild(m)}slot.appendChild(el);
+ slot.addEventListener('click',()=>{if(dragging)return;selected=i;renderPieces();$('status').textContent='Piece selected';});
+ slot.addEventListener('pointerdown',e=>{
+   if(!slots[i])return;
+   e.preventDefault();dragging=true;dragIndex=i;selected=i;
+   slot.classList.add('selected');sfxPick();showDragGhost(slots[i],e.clientX,e.clientY);$('status').textContent='Drag the piece to the board';
+   try{slot.setPointerCapture(e.pointerId)}catch(_){}
+ });}
+ else slot.innerHTML='<span style="color:#71839d;font-size:12px">USED</span>';
+ pieces.appendChild(slot);
+ });
+}
+function fits(piece,r,c){return piece.shape.every(([y,x])=>r+y<N&&c+x<N&&r+y>=0&&c+x>=0&&!grid[r+y][c+x])}
+function preview(r,c){document.querySelectorAll('.cell').forEach(d=>d.classList.remove('preview','invalid'));if(selected<0||!slots[selected])return;let p=slots[selected],ok=fits(p,r,c);p.shape.forEach(([y,x])=>{let d=board.children[(r+y)*N+c+x];if(d&&r+y<N&&c+x<N)d.classList.add(ok?'preview':'invalid')})}
+function place(r,c){
+ if(selected<0||!slots[selected]){ $('status').textContent='Select a piece first';return}
+ let p=slots[selected];if(!fits(p,r,c)){ $('status').textContent='Cannot place here';sfxInvalid();return}
+ p.shape.forEach(([y,x])=>grid[r+y][c+x]=p.color);
+ score+=p.shape.length;slots[selected]=null;selected=-1;
+ let rows=[],cols=[];for(let y=0;y<N;y++)if(grid[y].every(Boolean))rows.push(y);for(let x=0;x<N;x++)if(grid.every(row=>row[x]))cols.push(x);
+ if(rows.length||cols.length){let cleared=new Set();rows.forEach(y=>{for(let x=0;x<N;x++)cleared.add(y*N+x)});cols.forEach(x=>{for(let y=0;y<N;y++)cleared.add(y*N+x)});cleared.forEach(i=>grid[Math.floor(i/N)][i%N]=null);score+=cleared.size*2+rows.length*10+cols.length*10;sfxClear(rows.length+cols.length);$('status').textContent=`Cleared ${rows.length+cols.length} line(s)!`}
+ else sfxPlace();
+ if(slots.every(x=>!x))slots=[newPiece(),newPiece(),newPiece()];
+ best=Math.max(best,score);$('score').textContent=score;$('best').textContent='Best: '+best;
+ renderBoard();renderPieces();checkGame();
+}
+function checkGame(){let possible=slots.some(p=>p&&p.shape.some(([y,x])=>{for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fits(p,r,c))return true;return false}));if(!possible){$('modalTitle').textContent='Game Over!';$('modalText').textContent='Your score: '+score;$('overlay').classList.add('show');sfxGameOver()}}
+board.addEventListener('click',e=>{if(dragging)return;let d=e.target.closest('.cell');if(d)place(+d.dataset.r,+d.dataset.c)});
+board.addEventListener('pointermove',e=>{let d=document.elementFromPoint(e.clientX,e.clientY)?.closest('.cell');if(d)preview(+d.dataset.r,+d.dataset.c)});
+board.addEventListener('pointerleave',()=>{if(!dragging)document.querySelectorAll('.cell').forEach(d=>d.classList.remove('preview','invalid'))});
+document.addEventListener('pointermove',e=>{
+ if(!dragging||dragIndex<0||!slots[dragIndex])return;
+ moveDragGhost(e.clientX,e.clientY);
+ const under=document.elementFromPoint(e.clientX,e.clientY);
+ const cell=under&&under.closest?under.closest('.cell'):null;
+ if(cell)preview(+cell.dataset.r,+cell.dataset.c);
+ else document.querySelectorAll('.cell').forEach(d=>d.classList.remove('preview','invalid'));
+},{passive:true});
+document.addEventListener('pointerup',e=>{
+ if(!dragging)return;
+ const idx=dragIndex;dragging=false;dragIndex=-1;hideDragGhost();
+ const target=document.elementFromPoint(e.clientX,e.clientY);
+ const cell=target&&target.closest?target.closest('.cell'):null;
+ if(cell&&idx>=0&&slots[idx]){selected=idx;place(+cell.dataset.r,+cell.dataset.c)}
+ else {selected=idx;renderPieces();$('status').textContent='Drag a block onto the board';}
+ document.querySelectorAll('.cell').forEach(d=>d.classList.remove('preview','invalid'));
+});
+document.addEventListener('pointercancel',()=>{
+ if(!dragging)return;
+ dragging=false;dragIndex=-1;hideDragGhost();renderPieces();
+ document.querySelectorAll('.cell').forEach(d=>d.classList.remove('preview','invalid'));
+});
+function reset(){dragging=false;dragIndex=-1;hideDragGhost();grid=Array.from({length:N},()=>Array(N).fill(null));score=0;selected=-1;slots=[newPiece(),newPiece(),newPiece()];$('score').textContent='0';$('status').textContent='Ready to play!';$('overlay').classList.remove('show');renderBoard();renderPieces()}
+$('restart').onclick=()=>{sfxButton();reset()};$('again').onclick=()=>{sfxButton();reset()};
+$('sound').onclick=()=>{sound=!sound;$('sound').textContent='Sound: '+(sound?'ON':'OFF');if(sound){tone(600,.09,0,'sine',.04);tone(820,.1,.08,'sine',.035)}};
+$('how').onclick=()=>{sfxButton();$('modalTitle').textContent='How to Play';$('modalText').textContent='Drag a block from the bottom onto the board. Fill a row or column to clear it. A new set appears when all 3 pieces are used.';$('overlay').classList.add('show')};
+reset();
+})();
+</script>
+</body>
+</html>
