@@ -8,9 +8,6 @@ min_aos=3.0.2
 board=ES3C28P
 type=page
 ---PAGE---
-<h1>Hello AOS</h1>
-<p>This page is shown by the AOS page viewer.</p>
-<ul><li>Item one</li><li>Item two</li></ul>
 <!doctype html>
 <html lang="en">
 <head>
